@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment
+venv/
+
+# Environment variables / secrets
+.env
+
+# Local database
+*.db
+
+# Tooling artifacts
+.playwright-mcp/
+
+# IDE
+.vscode/
+
+# Screenshots
+login.png
