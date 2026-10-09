@@ -52,8 +52,8 @@ def test_create_user_rejects_duplicate_email(client):
     assert second.json()["detail"] == "Email already registered"
 
 
-def test_get_all_users(client, user):
-    response = client.get("/users/")
+def test_get_all_users(client, user, admin_headers):
+    response = client.get("/users/", headers=admin_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -164,10 +164,12 @@ def test_update_missing_user_returns_404(client):
     assert response.json()["detail"] == "User not found"
 
 
-def test_delete_user(client, new_user):
+def test_delete_user(client, new_user, admin_headers):
     account = new_user(prefix="delete")
 
-    delete_response = client.delete("/users/{}".format(account["id"]))
+    delete_response = client.delete(
+        "/users/{}".format(account["id"]), headers=admin_headers
+    )
 
     assert delete_response.status_code == 200
     assert delete_response.json()["message"] == "User deleted Successfully"
@@ -177,8 +179,8 @@ def test_delete_user(client, new_user):
     assert follow_up.json()["detail"] == "User not found"
 
 
-def test_delete_missing_user_returns_404(client):
-    response = client.delete("/users/999999")
+def test_delete_missing_user_returns_404(client, admin_headers):
+    response = client.delete("/users/999999", headers=admin_headers)
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found"
@@ -189,7 +191,7 @@ def make_account(new_user, login, prefix):
     return account, auth_headers_for(login(account))
 
 
-def test_delete_user_with_projects_returns_409(client, new_user, login):
+def test_delete_user_with_projects_returns_409(client, new_user, login, admin_headers):
     account, account_headers = make_account(new_user, login, "delete-blocked")
     created = client.post(
         "/projects/", json={"name": "Untouchable", "description": None},
@@ -198,7 +200,9 @@ def test_delete_user_with_projects_returns_409(client, new_user, login):
     assert created.status_code == 200, created.text
     project_id = created.json()["id"]
 
-    response = client.delete("/users/{}".format(account["id"]))
+    response = client.delete(
+        "/users/{}".format(account["id"]), headers=admin_headers
+    )
 
     assert response.status_code == 409
     assert response.json()["detail"] == "User still has projects or tasks"
@@ -209,7 +213,7 @@ def test_delete_user_with_projects_returns_409(client, new_user, login):
     assert kept.json()["owner_id"] == account["id"]
 
 
-def test_delete_user_with_tasks_returns_409(client, new_user, login):
+def test_delete_user_with_tasks_returns_409(client, new_user, login, admin_headers):
     account, account_headers = make_account(new_user, login, "delete-blocked-task")
     project_id = client.post(
         "/projects/", json={"name": "Host", "description": None},
@@ -222,7 +226,9 @@ def test_delete_user_with_tasks_returns_409(client, new_user, login):
     assert created.status_code == 200, created.text
     task_id = created.json()["id"]
 
-    response = client.delete("/users/{}".format(account["id"]))
+    response = client.delete(
+        "/users/{}".format(account["id"]), headers=admin_headers
+    )
 
     assert response.status_code == 409
     assert response.json()["detail"] == "User still has projects or tasks"
@@ -233,7 +239,7 @@ def test_delete_user_with_tasks_returns_409(client, new_user, login):
     assert kept.json()["owner_id"] == account["id"]
 
 
-def test_delete_user_succeeds_after_content_removed(client, new_user, login):
+def test_delete_user_succeeds_after_content_removed(client, new_user, login, admin_headers):
     account, account_headers = make_account(new_user, login, "delete-cleaned")
     project_id = client.post(
         "/projects/", json={"name": "Temp", "description": None},
@@ -253,8 +259,24 @@ def test_delete_user_succeeds_after_content_removed(client, new_user, login):
     )
     assert project_delete.status_code == 200, project_delete.text
 
-    response = client.delete("/users/{}".format(account["id"]))
+    response = client.delete(
+        "/users/{}".format(account["id"]), headers=admin_headers
+    )
 
     assert response.status_code == 200
     assert response.json()["message"] == "User deleted Successfully"
     assert client.get("/users/{}".format(account["id"])).status_code == 404
+
+
+def test_normal_user_cannot_list_or_delete_users(client, user, headers):
+    list_response = client.get("/users/", headers=headers)
+
+    assert list_response.status_code == 403
+    assert list_response.json()["detail"] == "Admin access required"
+
+    delete_response = client.delete(
+        "/users/{}".format(user["id"]), headers=headers
+    )
+
+    assert delete_response.status_code == 403
+    assert delete_response.json()["detail"] == "Admin access required"

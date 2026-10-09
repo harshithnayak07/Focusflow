@@ -5,7 +5,7 @@ from app.models.user import User
 from app.schemas.user import UserResponse, UserCreate, UserUpdate, Userlogin, Token
 from app.core.security import hash_password, verify_password,create_access_token
 from fastapi.security import OAuth2PasswordRequestForm
-from app.core.dependence import get_current_user
+from app.core.dependence import get_current_user, get_current_admin
 from app.repositories.user_repository import get_all_users, get_user_id, create_user_rep, update_user_name, del_user,get_user_login
 from app.services.user_service import create_user_service, login_user_service
 router = APIRouter()
@@ -16,7 +16,10 @@ def test(current_user : User = Depends(get_current_user)):
 
 
 @router.get("/", response_model=list[UserResponse])
-def get_users(db : Session = Depends(get_db)):
+def get_users(
+    db : Session = Depends(get_db),
+    current_admin : User = Depends(get_current_admin)
+):
     users = get_all_users(db)
     return users
 
@@ -52,18 +55,22 @@ def update_user(user_id:int, user_update:UserUpdate, db:Session = Depends(get_db
     return update_user_name(db, user, user_update.name)
 
 @router.delete("/{user_id}")
-def delete_user(user_id : int, db :Session = Depends(get_db)):
-    
+def delete_user(
+    user_id : int,
+    db : Session = Depends(get_db),
+    current_admin : User = Depends(get_current_admin)
+):
+
     user = get_user_id(user_id, db)
-    
+
     if user is None:
         raise HTTPException(
             status_code= 404,
             detail= "User not found"
         )
-        
+
     del_user(db, user)
-    
+
     return {"message":"User deleted Successfully"}
 
 @router.post("/login", response_model=Token)

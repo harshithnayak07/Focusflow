@@ -80,3 +80,31 @@ def login(client):
 @pytest.fixture
 def headers(user, login):
     return auth_headers_for(login(user))
+
+
+@pytest.fixture
+def admin_headers(client):
+    from app.core.security import hash_password
+    from app.database.connection import Sessionlocal
+    from app.models.user import User
+
+    db = Sessionlocal()
+    try:
+        admin = User(
+            name="Admin User",
+            email=unique_email("admin"),
+            password_hash=hash_password("password-123"),
+            role="admin",
+        )
+        db.add(admin)
+        db.commit()
+        db.refresh(admin)
+    finally:
+        db.close()
+
+    response = client.post(
+        "/users/login",
+        data={"username": admin.email, "password": "password-123"},
+    )
+    assert response.status_code == 200, response.text
+    return auth_headers_for(response.json()["access_token"])

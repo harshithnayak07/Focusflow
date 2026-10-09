@@ -8,7 +8,7 @@ from app.schemas.user import UserResponse
 from app.repositories.user_repository import get_all_users
 from app.repositories.user_repository import (
     get_user_id,
-    delete_user_record
+    del_user
 )
 router = APIRouter()
 
@@ -40,6 +40,6 @@ def delete_user_admin(
             detail="Admin cannot delete their own account"
         )
 
-    delete_user_record(db, user)
+    del_user(db, user)
 
     return {"message": "User deleted successfully"}
